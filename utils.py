@@ -148,8 +148,8 @@ def load_corpus(dataset_str):
     print(x.shape, y.shape, tx.shape, ty.shape, allx.shape, ally.shape)
 
     features = sp.vstack((allx, tx)).tolil()
-    labels = np.vstack((ally, ty))
-    print(len(labels))
+    labels = sp.vstack((ally, ty)).toarray()
+    print(labels.shape)
 
     train_idx_orig = parse_index_file(
         "data/{}.train.index".format(dataset_str))
@@ -169,6 +169,9 @@ def load_corpus(dataset_str):
     y_train = np.zeros(labels.shape)
     y_val = np.zeros(labels.shape)
     y_test = np.zeros(labels.shape)
+    #print(type(labels))
+    #print(labels.shape)
+    #print(labels[train_mask, :])
     y_train[train_mask, :] = labels[train_mask, :]
     y_val[val_mask, :] = labels[val_mask, :]
     y_test[test_mask, :] = labels[test_mask, :]
