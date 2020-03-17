@@ -251,6 +251,8 @@ if __name__ == '__main__':
     write_list(ids[train_size:], 'data/fs.' + dataset + '.test.index')
     write_list(names, 'data/fs.' + dataset + '_shuffle.txt')
     write_list(docs, 'data/corpus/fs.' + dataset + '_shuffle.txt')
+    write_list([train_size-val_size, val_size, test_size], 'data/fs.' + dataset + '.lens')
+    print(train_size-val_size, val_size, test_size)
 
     print('Building vocab...')
     docs_words = [doc.split() for doc in docs]
