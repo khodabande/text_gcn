@@ -228,128 +228,130 @@ def dump_obj(obj, file):
 
 
 
-if len(sys.argv) != 2:
-    sys.exit("Use: python build_graph.py <dataset>")
+if __name__ == '__main__':
+    
+    if len(sys.argv) != 2:
+        sys.exit("Use: python build_graph.py <dataset>")
 
-datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
-dataset = sys.argv[1]
+    datasets = ['20ng', 'R8', 'R52', 'ohsumed', 'mr']
+    dataset = sys.argv[1]
 
-if dataset not in datasets:
-    sys.exit("wrong dataset name")
-
-
-
-print('Reading data...')
-ids, names, docs, labels, train_size, test_size = read_dataset(dataset)
-
-write_list(ids[:train_size], 'data/' + dataset + '.train.index')
-write_list(ids[train_size:], 'data/' + dataset + '.test.index')
-write_list(names, 'data/' + dataset + '_shuffle.txt')
-write_list(docs, 'data/corpus/' + dataset + '_shuffle.txt')
-
-print('Building vocab...')
-docs_words = [doc.split() for doc in docs]
-vocab, word_id_map = build_vocab(docs_words)
-docs_wids = [[word_id_map[w] for w in doc] for doc in docs_words]
-
-write_list(vocab, 'data/corpus/' + dataset + '_vocab.txt')
-
-print('Frequencies...')
-freq_mat = build_freq_matrix(docs_wids, word_id_map)
-
-print('Embedding...')
-word_mat = load_or_build_embedding(dataset)
-word_embeddings_dim = word_mat.shape[1]
-#print(word_embeddings_dim)
-
-print('Label IDs...')
-label_list, label_id_map = get_label_ids(labels)
-label_ids = [label_id_map[l] for l in labels]
-label_mat = np.eye(len(label_list))
-
-write_list(label_list, 'data/corpus/' + dataset + '_labels.txt')
-
-
-print('Feature vectors...')
-val_size = int(0.1 * train_size)
-real_train_size = train_size - val_size
-
-write_list(names[:real_train_size], 'data/' + dataset + '.real_train.name')
-
-# train
-train_freq = freq_mat[:real_train_size]
-x = (train_freq / train_freq.sum(1)) * word_mat
-y = label_mat[label_ids[:real_train_size],:]
-
-# test
-test_freq = freq_mat[train_size:]
-tx = (test_freq / test_freq.sum(1)) * word_mat
-ty = label_mat[label_ids[train_size:],:]
-
-# all (+words)
-train_freq = freq_mat[:train_size]
-allx = (train_freq / train_freq.sum(1)) * word_mat
-ally = label_mat[label_ids[:train_size],:]
-allx = vstack([allx, word_mat])
-ally = vstack([ally, sp.csr_matrix((len(vocab), len(label_list)))])
-
-#print(x.shape, y.shape, tx.shape, ty.shape, allx.shape, ally.shape)
-
-print('PMIs...')
-#window_freq, num_windows = build_window_freq_matrix(docs_wids, len(vocab))
-#window_cofreq, num_windows = build_window_cofreq_matrix(docs_wids, len(vocab))
-window_freq, window_cofreq, num_windows = build_window_freqs(docs_wids, len(vocab))
-
-# pmi as weights
-pmi = window_cofreq.copy()
-rows, cols = pmi.nonzero()
-pmi.data = np.clip(np.log(np.divide(pmi.data, window_freq[rows] * window_freq[cols] / float(num_windows))), 0, None)
-
-
-print('Adjacency matrix...')
-app_mat = freq_mat.copy()
-app_mat[app_mat > 0] = 1
-word_freq_arr = np.asarray(app_mat.sum(0))[0]
-idf_arr = np.log(float(len(docs)) / word_freq_arr)
-tfidf_mat = get_tfidf(freq_mat, idf_arr)
-
-node_size = train_size + len(vocab) + test_size
-
-adj = bmat([
-    [None, tfidf_mat[:train_size], None],
-    [tfidf_mat[:train_size].transpose(), pmi, tfidf_mat[train_size:].transpose()],
-    [None, tfidf_mat[train_size:], None]
-])
-
-# adj = bmat([
-#     [None, tfidf_mat[:train_size], None],
-#     [sp.csr_matrix((len(vocab), train_size)), pmi, sp.csr_matrix((len(vocab), test_size))],
-#     [None, tfidf_mat[train_size:], None]
-# ])
-
-
-dump_obj(x, "data/ind." + dataset + ".x")
-dump_obj(y, "data/ind." + dataset + ".y")
-dump_obj(tx, "data/ind." + dataset + ".tx")
-dump_obj(ty, "data/ind." + dataset + ".ty")
-dump_obj(allx, "data/ind." + dataset + ".allx")
-dump_obj(ally, "data/ind." + dataset + ".ally")
-dump_obj(adj, "data/ind." + dataset + ".adj")
+    if dataset not in datasets:
+        sys.exit("wrong dataset name")
 
 
 
-# word vector cosine similarity as weights
+    print('Reading data...')
+    ids, names, docs, labels, train_size, test_size = read_dataset(dataset)
 
-'''
-for i in range(vocab_size):
-    for j in range(vocab_size):
-        if vocab[i] in word_vector_map and vocab[j] in word_vector_map:
-            vector_i = np.array(word_vector_map[vocab[i]])
-            vector_j = np.array(word_vector_map[vocab[j]])
-            similarity = 1.0 - cosine(vector_i, vector_j)
-            if similarity > 0.9:
-                print(vocab[i], vocab[j], similarity)
-                row.append(train_size + i)
-                col.append(train_size + j)
-                weight.append(similarity)
-'''
+    write_list(ids[:train_size], 'data/' + dataset + '.train.index')
+    write_list(ids[train_size:], 'data/' + dataset + '.test.index')
+    write_list(names, 'data/' + dataset + '_shuffle.txt')
+    write_list(docs, 'data/corpus/' + dataset + '_shuffle.txt')
+
+    print('Building vocab...')
+    docs_words = [doc.split() for doc in docs]
+    vocab, word_id_map = build_vocab(docs_words)
+    docs_wids = [[word_id_map[w] for w in doc] for doc in docs_words]
+
+    write_list(vocab, 'data/corpus/' + dataset + '_vocab.txt')
+
+    print('Frequencies...')
+    freq_mat = build_freq_matrix(docs_wids, word_id_map)
+
+    print('Embedding...')
+    word_mat = load_or_build_embedding(dataset)
+    word_embeddings_dim = word_mat.shape[1]
+    #print(word_embeddings_dim)
+
+    print('Label IDs...')
+    label_list, label_id_map = get_label_ids(labels)
+    label_ids = [label_id_map[l] for l in labels]
+    label_mat = np.eye(len(label_list))
+
+    write_list(label_list, 'data/corpus/' + dataset + '_labels.txt')
+
+
+    print('Feature vectors...')
+    val_size = int(0.1 * train_size)
+    real_train_size = train_size - val_size
+
+    write_list(names[:real_train_size], 'data/' + dataset + '.real_train.name')
+
+    # train
+    train_freq = freq_mat[:real_train_size]
+    x = (train_freq / train_freq.sum(1)) * word_mat
+    y = label_mat[label_ids[:real_train_size],:]
+
+    # test
+    test_freq = freq_mat[train_size:]
+    tx = (test_freq / test_freq.sum(1)) * word_mat
+    ty = label_mat[label_ids[train_size:],:]
+
+    # all (+words)
+    train_freq = freq_mat[:train_size]
+    allx = (train_freq / train_freq.sum(1)) * word_mat
+    ally = label_mat[label_ids[:train_size],:]
+    allx = vstack([allx, word_mat])
+    ally = vstack([ally, sp.csr_matrix((len(vocab), len(label_list)))])
+
+    #print(x.shape, y.shape, tx.shape, ty.shape, allx.shape, ally.shape)
+
+    print('PMIs...')
+    #window_freq, num_windows = build_window_freq_matrix(docs_wids, len(vocab))
+    #window_cofreq, num_windows = build_window_cofreq_matrix(docs_wids, len(vocab))
+    window_freq, window_cofreq, num_windows = build_window_freqs(docs_wids, len(vocab))
+
+    # pmi as weights
+    pmi = window_cofreq.copy()
+    rows, cols = pmi.nonzero()
+    pmi.data = np.clip(np.log(np.divide(pmi.data, window_freq[rows] * window_freq[cols] / float(num_windows))), 0, None)
+
+
+    print('Adjacency matrix...')
+    app_mat = freq_mat.copy()
+    app_mat[app_mat > 0] = 1
+    word_freq_arr = np.asarray(app_mat.sum(0))[0]
+    idf_arr = np.log(float(len(docs)) / word_freq_arr)
+    tfidf_mat = get_tfidf(freq_mat, idf_arr)
+
+    node_size = train_size + len(vocab) + test_size
+
+    adj = bmat([
+        [None, tfidf_mat[:train_size], None],
+        [tfidf_mat[:train_size].transpose(), pmi, tfidf_mat[train_size:].transpose()],
+        [None, tfidf_mat[train_size:], None]
+    ])
+
+    # adj = bmat([
+    #     [None, tfidf_mat[:train_size], None],
+    #     [sp.csr_matrix((len(vocab), train_size)), pmi, sp.csr_matrix((len(vocab), test_size))],
+    #     [None, tfidf_mat[train_size:], None]
+    # ])
+
+
+    dump_obj(x, "data/ind." + dataset + ".x")
+    dump_obj(y, "data/ind." + dataset + ".y")
+    dump_obj(tx, "data/ind." + dataset + ".tx")
+    dump_obj(ty, "data/ind." + dataset + ".ty")
+    dump_obj(allx, "data/ind." + dataset + ".allx")
+    dump_obj(ally, "data/ind." + dataset + ".ally")
+    dump_obj(adj, "data/ind." + dataset + ".adj")
+
+
+
+    # word vector cosine similarity as weights
+
+    '''
+    for i in range(vocab_size):
+        for j in range(vocab_size):
+            if vocab[i] in word_vector_map and vocab[j] in word_vector_map:
+                vector_i = np.array(word_vector_map[vocab[i]])
+                vector_j = np.array(word_vector_map[vocab[j]])
+                similarity = 1.0 - cosine(vector_i, vector_j)
+                if similarity > 0.9:
+                    print(vocab[i], vocab[j], similarity)
+                    row.append(train_size + i)
+                    col.append(train_size + j)
+                    weight.append(similarity)
+    '''
